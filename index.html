@@ -55,12 +55,12 @@
 </head>
 <body>
   <div class="video-container">
-    <!-- First video: plays once (no loop) -->
+    <!-- First video plays once -->
     <video id="firstVideo" autoplay muted playsinline>
       <source src="Lettre d'invitation.mp4" type="video/mp4">
       Votre navigateur ne supporte pas la lecture vidéo.
     </video>
-    <!-- Second video: hidden initially; set to loop -->
+    <!-- Second video loops (hidden initially) -->
     <video id="loopVideo" autoplay muted loop playsinline style="display: none;">
       <source src="lettre d'invitation loop.mp4" type="video/mp4">
       Votre navigateur ne supporte pas la lecture vidéo.
@@ -80,9 +80,18 @@
       document.getElementById("loopVideo").style.display = "block";
     };
 
-    // Show the proceed button after 3 seconds.
     window.onload = function() {
-      setTimeout(function() {
+      // Fetch attendee list from your Cloud Function and store in sessionStorage.
+      fetch("https://us-central1-rsvp-backend.cloudfunctions.net/handleRSVP?action=read")
+        .then(response => response.json())
+        .then(data => {
+          sessionStorage.setItem("attendeeList", JSON.stringify(data));
+          console.log("Attendee list retrieved and stored:", data);
+        })
+        .catch(error => console.error("Error fetching attendee list:", error));
+
+      // Show the proceed button after 3 seconds.
+      setTimeout(() => {
         document.getElementById("proceedButton").style.display = "block";
       }, 3000);
     };
