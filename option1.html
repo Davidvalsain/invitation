@@ -1,0 +1,355 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0"/>
+  <title>Invitation</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      overflow: hidden;
+      text-align: center;
+    }
+    .video-container {
+      position: fixed;
+      top: 0;
+      left: 0;
+      width: 100vw;
+      height: 100vh;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      overflow: hidden;
+      z-index: -1;
+    }
+    .video-container video {
+      width: 100vw;
+      height: 100vh;
+      object-fit: contain;
+    }
+    .message-container {
+      position: absolute;
+      top: 38%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      background: transparent;
+      padding: 20px;
+      border-radius: 15px;
+      width: 90%;
+      max-width: 320px;
+      color: #004080;
+      font-size: 1.8rem;
+      font-weight: bold;
+      text-align: center;
+      word-wrap: break-word;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+    .button-container {
+      position: absolute;
+      top: 65%;
+      left: 50%;
+      transform: translate(-50%, -50%);
+      width: 90%;
+      max-width: 320px;
+      display: flex;
+      flex-direction: column;
+      gap: 15px;
+      opacity: 0;
+      transition: opacity 0.5s ease-in-out;
+    }
+    .button {
+      padding: 15px;
+      font-size: 1.5rem;
+      font-weight: bold;
+      border: none;
+      border-radius: 10px;
+      cursor: pointer;
+      transition: background 0.3s, transform 0.3s;
+      width: 100%;
+    }
+    .button-yes {
+      background-color: #28a745;
+      color: white;
+    }
+    .button-no {
+      background-color: #dc3545;
+      color: white;
+    }
+    .button:hover {
+      opacity: 0.8;
+      transform: scale(1.05);
+    }
+    .fade-in {
+      opacity: 1 !important;
+    }
+    /* Loading indicator fixed at bottom center */
+    #loadingIndicator {
+      position: fixed;
+      bottom: 20px;
+      left: 50%;
+      transform: translateX(-50%);
+      font-size: 1.2rem;
+      color: #004080;
+      display: none;
+    }
+  </style>
+</head>
+<body>
+  <div class="video-container">
+    <video id="firstVideo" autoplay muted loop playsinline>
+      <source src="identify yourself.mp4" type="video/mp4">
+      Votre navigateur ne supporte pas la lecture vidéo.
+    </video>
+  </div>
+
+  <div id="message-container" class="message-container">
+    <p id="message"></p>
+  </div>
+
+  <div class="button-container" id="button-container"></div>
+
+  <!-- Loading indicator at bottom -->
+  <div id="loadingIndicator">Chargement...</div>
+
+  <script>
+    // Prevent back navigation
+    window.history.pushState(null, null, window.location.href);
+    window.addEventListener('popstate', function (event) {
+      window.history.pushState(null, null, window.location.href);
+    });
+
+    // Utility: Get query parameter from URL
+    function getQueryParam(param) {
+      const urlParams = new URLSearchParams(window.location.search);
+      return urlParams.get(param);
+    }
+
+    // Helper: Save current step to sessionStorage and update URL via History API
+    function goToStep(step, callback) {
+      sessionStorage.setItem("currentStep", step);
+      history.pushState({ step: step }, "", "option1.html?step=" + step);
+      if (callback && typeof callback === "function") {
+        callback();
+      }
+    }
+
+    // Restore state on back/forward navigation
+    window.onpopstate = function(event) {
+      if (event.state && event.state.step) {
+        runStep(event.state.step);
+      }
+    };
+
+    function runStep(step) {
+      switch(step) {
+        case "confirmUser":
+          confirmUser();
+          break;
+        case "askAttendance":
+          askAttendance();
+          break;
+        case "askMealPreference":
+          askMealPreference();
+          break;
+        case "confirmRSVP":
+          confirmRSVP();
+          break;
+        case "showFinalMessage":
+          showFinalMessage();
+          break;
+        case "revisePresence":
+          revisePresence();
+          break;
+        case "reviseMealPreference":
+          reviseMealPreference();
+          break;
+        default:
+          confirmUser();
+      }
+    }
+
+    const selectedName = getQueryParam("name");
+    // Cloud Function URL
+    const scriptURL = "https://us-central1-rsvp-backend.cloudfunctions.net/handleRSVP";
+
+    const messageContainer = document.getElementById("message-container");
+    const buttonContainer = document.getElementById("button-container");
+    const loadingIndicator = document.getElementById("loadingIndicator");
+
+    // Retrieve attendee list from sessionStorage (populated in intro.html)
+    const attendees = JSON.parse(sessionStorage.getItem("attendeeList")) || [];
+
+    // Check if user is already registered
+    function isUserRegistered(name) {
+      return attendees.some(att => att.name && att.name.trim().toLowerCase() === name.trim().toLowerCase());
+    }
+
+    // Fade helper functions
+    function fadeOut() {
+      messageContainer.classList.remove("fade-in");
+      buttonContainer.classList.remove("fade-in");
+    }
+    function fadeIn() {
+      messageContainer.classList.add("fade-in");
+      buttonContainer.classList.add("fade-in");
+    }
+
+    // STEP 1: Confirm User Identity
+    function confirmUser() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Bonjour " + selectedName + ". C'est bien vous?";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="handleUserConfirmation()">Oui</button>
+          <button class="button button-no" onclick="window.location.href='identity.html'">Non</button>
+        `;
+        goToStep("confirmUser", function() {});
+      }, 500);
+    }
+
+    function handleUserConfirmation() {
+      if (isUserRegistered(selectedName)) {
+        fadeOut();
+        setTimeout(() => {
+          document.getElementById("message").innerText = "Vous êtes déjà enregistré. Voulez-vous faire une modification ?";
+          fadeIn();
+          buttonContainer.innerHTML = `
+            <button class="button button-yes" onclick="goToStep('revisePresence', revisePresence)">Oui</button>
+            <button class="button button-no" onclick="goToStep('showFinalMessage', showFinalMessage)">Non</button>
+          `;
+        }, 500);
+      } else {
+        goToStep("askAttendance", askAttendance);
+      }
+    }
+
+    // PART A: Normal Flow (New User)
+    function askAttendance() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Allez-vous venir à la célébration?";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="goToStep('askMealPreference', askMealPreference)">Oui</button>
+          <button class="button button-no" onclick="nonAttendanceNewUser()">Non</button>
+        `;
+      }, 500);
+    }
+
+    function nonAttendanceNewUser() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Êtes-vous sûr de ne pas pouvoir venir?";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="updateGoogleSheet('Non','N/A', function(){ goToStep('showFinalMessage', showFinalMessage) })">Je ne viens pas</button>
+          <button class="button button-no" onclick="goToStep('askAttendance', askAttendance)">Je change d'avis</button>
+        `;
+      }, 500);
+    }
+
+    function askMealPreference() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Préférez-vous Végétarien ou Non-Végétarien?";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="updateGoogleSheet('Oui','Végétarien', function(){ goToStep('confirmRSVP', confirmRSVP) })">Végétarien</button>
+          <button class="button button-no" onclick="updateGoogleSheet('Oui','Non-Végétarien', function(){ goToStep('confirmRSVP', confirmRSVP) })">Non-Végétarien</button>
+        `;
+      }, 500);
+    }
+
+    function confirmRSVP() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Votre RSVP a bien été enregistré. Veuillez confirmer pour continuer.";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="goToStep('showFinalMessage', showFinalMessage)">Confirmer</button>
+        `;
+      }, 500);
+    }
+
+    // PART B: Update Flow (Merged from Option3)
+    function revisePresence() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Je revois ma présence";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="goToStep('reviseMealPreference', reviseMealPreference)">Je viens</button>
+          <button class="button button-no" onclick="updateGoogleSheet('Non','N/A', function(){ goToStep('showFinalMessage', showFinalMessage) })">Je ne viens pas</button>
+        `;
+      }, 500);
+    }
+
+    function reviseMealPreference() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Je revois ma préférence";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="updateGoogleSheet('Oui','Végétarien', function(){ goToStep('confirmRSVP', confirmRSVP) })">Végétarien</button>
+          <button class="button button-no" onclick="updateGoogleSheet('Oui','Non-Végétarien', function(){ goToStep('confirmRSVP', confirmRSVP) })">Non-Végétarien</button>
+        `;
+      }, 500);
+    }
+
+    // STEP 5: Final Message (Both Flows)
+    function showFinalMessage() {
+      fadeOut();
+      setTimeout(() => {
+        document.getElementById("message").innerText = "Merci! Voulez-vous voir la liste des personnes présentes?";
+        fadeIn();
+        buttonContainer.innerHTML = `
+          <button class="button button-yes" onclick="window.location.href='option2.html'">Oui</button>
+          <button class="button button-no" onclick="document.body.innerHTML = ''">Non</button>
+        `;
+      }, 500);
+    }
+
+    // Helper: POST data to Cloud Function
+    // Show the loading indicator during the request
+    function updateGoogleSheet(attendance, meal, callback, isUpdate) {
+      const payload = { name: selectedName, attendance: attendance, meal: meal };
+      if (isUpdate) payload.update = true;
+      console.log("Posting to Cloud Function:", payload);
+
+      // Show loading indicator
+      loadingIndicator.style.display = "block";
+
+      fetch(scriptURL, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify(payload)
+      })
+      .then(response => response.json())
+      .then(data => {
+        console.log("Update response:", data);
+        // Hide loading indicator
+        loadingIndicator.style.display = "none";
+        if (callback) callback();
+      })
+      .catch(error => {
+        console.error("Error updating google sheet:", error);
+        // Hide loading indicator
+        loadingIndicator.style.display = "none";
+        if (callback) callback();
+      });
+    }
+
+    // Initialization: restore state from sessionStorage if available, otherwise start at confirmUser
+    const storedStep = sessionStorage.getItem("currentStep");
+    if (storedStep) {
+      runStep(storedStep);
+    } else if (selectedName) {
+      goToStep("confirmUser", confirmUser);
+    }
+  </script>
+</body>
+</html>

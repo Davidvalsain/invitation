@@ -1,0 +1,149 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Invitation</title>
+  <style>
+    body { 
+      font-family: Arial, sans-serif; 
+      margin: 0; 
+      padding: 0; 
+      overflow: hidden; 
+      text-align: center; 
+    }
+    .video-container { 
+      position: fixed; 
+      top: 0; 
+      left: 0; 
+      width: 100vw; 
+      height: 100vh; 
+      display: flex; 
+      justify-content: center; 
+      align-items: center; 
+      overflow: hidden; 
+      z-index: -1; 
+    }
+    .video-container video { 
+      width: 100vw; 
+      height: 100vh; 
+      object-fit: contain; 
+    }
+    .message-container { 
+      position: absolute; 
+      top: 30%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      background: transparent; 
+      padding: 15px; 
+      border-radius: 15px; 
+      width: 85%; 
+      max-width: 300px; 
+      color: #004080; 
+      font-size: 1.8rem; 
+      font-weight: bold; 
+      text-align: center; 
+      word-wrap: break-word; 
+      opacity: 1; 
+    }
+    .list-container { 
+      position: absolute; 
+      top: 60%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+      width: 85%; 
+      max-width: 300px; 
+      background: rgba(255, 255, 255, 0.9); 
+      padding: 10px; 
+      border-radius: 10px; 
+      max-height: 250px; 
+      overflow-y: auto; 
+      text-align: left; 
+      font-size: 1.2rem; 
+      color: #004080; 
+    }
+    .button-container { 
+      position: absolute; 
+      top: 90%; 
+      left: 50%; 
+      transform: translate(-50%, -50%); 
+    }
+    .button { 
+      padding: 12px 25px; 
+      font-size: 1.3rem; 
+      font-weight: bold; 
+      border: none; 
+      border-radius: 10px; 
+      cursor: pointer; 
+      background-color: #004080; 
+      color: white; 
+      transition: background 0.3s, transform 0.3s; 
+    }
+    .button:hover { 
+      background-color: #002b5e; 
+      transform: scale(1.05); 
+    }
+    .veg { 
+      color: green; 
+      font-weight: bold; 
+    }
+    .non-veg { 
+      color: red; 
+      font-weight: bold; 
+    }
+  </style>
+</head>
+<body>
+  <div class="video-container">
+    <video id="firstVideo" autoplay muted loop playsinline>
+      <source src="identify yourself.mp4" type="video/mp4">
+      Votre navigateur ne supporte pas la lecture vidéo.
+    </video>
+  </div>
+  <div class="message-container">
+    <p>Voici la liste des personnes présentes</p>
+  </div>
+  <div class="list-container" id="attendee-list">
+    <p>Chargement...</p>
+  </div>
+  <div class="button-container">
+    <!-- Clicking Terminer -> about:blank -->
+    <button class="button" onclick="window.location.href='about:blank'">Terminer</button>
+  </div>
+  <script>
+    // Append a timestamp to force a fresh fetch
+    const functionURL = "https://us-central1-rsvp-backend.cloudfunctions.net/handleRSVP?action=read&ts=" + new Date().getTime();
+
+    window.onload = function() {
+      fetch(functionURL)
+        .then(response => response.json())
+        .then(data => {
+          const listContainer = document.getElementById('attendee-list');
+          listContainer.innerHTML = "";
+          if (data.length > 0) {
+            data.forEach(attendee => {
+              const p = document.createElement("p");
+              let mealAbbr = attendee.meal;
+              let mealClass = "";
+              if (attendee.meal.trim().toLowerCase() === "végétarien") {
+                mealAbbr = "Veg";
+                mealClass = "veg";
+              } else if (attendee.meal.trim().toLowerCase() === "non-végétarien") {
+                mealAbbr = "NV";
+                mealClass = "non-veg";
+              }
+              p.innerHTML = `${attendee.name} - ${attendee.attendance} - <span class="${mealClass}">${mealAbbr}</span>`;
+              listContainer.appendChild(p);
+            });
+          } else {
+            listContainer.innerHTML = "<p>Aucun participant pour le moment.</p>";
+          }
+        })
+        .catch(error => {
+          console.error("Erreur de chargement:", error);
+          document.getElementById('attendee-list').innerHTML = "<p>Erreur de chargement...</p>";
+        });
+    };
+  </script>
+</body>
+</html>
